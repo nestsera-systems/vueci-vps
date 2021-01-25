@@ -1,0 +1,32 @@
+name: Remote Dispatch Action Responder
+ 
+on: [repository_dispatch]
+ 
+jobs:
+  ping-pong:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Event Information
+        run: echo "Event '${{ github.event.action }}' received from '${{ github.event.client_payload.repository }}'"
+  lint:
+    name: Run ESLint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.event.client_payload.github_repository }}
+          ref: ${{ github.event.client_payload.github_ref }}
+          token: ${{ github.event.client_payload.ping_access_token }}
+
+      - name: Caching Dependencies
+        uses: actions/cache@v2
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
+
+      - name: Install your dependencies
+        run: yarn install
+
+      - name: Run ESLint
+        run: yarn lint
