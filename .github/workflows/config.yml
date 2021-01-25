@@ -3,11 +3,6 @@ name: Remote Dispatch Action Responder
 on: [repository_dispatch]
  
 jobs:
-  ping-pong:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Event Information
-        run: echo "Event '${{ github.event.action }}' received from '${{ github.event.client_payload.repository }}'"
   lint:
     name: Run ESLint
     runs-on: ubuntu-latest
@@ -17,13 +12,17 @@ jobs:
         with:
           repository: ${{ github.event.client_payload.github_repository }}
           ref: ${{ github.event.client_payload.github_ref }}
-          token: ${{ github.event.client_payload.ping_access_token }}
+          token: ${{ secrets[github.event.client_payload.ping_access_token] }}
 
       - name: Caching Dependencies
         uses: actions/cache@v2
         with:
           path: '**/node_modules'
-          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ runner.os }}-${{ github.event.client_payload.github_repository }}-${{ github.event.client_payload.github_ref }}-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ github.event.client_payload.github_repository }}-${{ github.event.client_payload.github_ref }}-
+            ${{ runner.os }}-${{ github.event.client_payload.github_repository }}-
+            ${{ runner.os }}-
 
       - name: Install your dependencies
         run: yarn install
