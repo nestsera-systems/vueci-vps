@@ -2,56 +2,85 @@ name: Remote Dispatch Action Responder
  
 on: [repository_dispatch]
 
-# env:
-#   GHCR_IMAGE: ghcr.io/${{ github.repository }}:${{ github.run_id }}
- 
 jobs:
-  # lint:
-  #   name: Run ESLint
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v2
-  #       with:
-  #         repository: ${{ github.event.client_payload.github_repository }}
-  #         ref: ${{ github.event.client_payload.github_ref }}
-  #         token: ${{ secrets[github.event.client_payload.ping_pat] }}
+  identify:
+    name: Set environment variables
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Patching to github environment
+        run: |
+          echo -e "${{ github.event.client_payload.configs }}" >> $GITHUB_ENV
+          echo -e "${{ github.event.client_payload.ci_client_env }}" >> $GITHUB_ENV
+      -
+        name: Set the output variables
+        id: identify
+        run: |
+          echo "::set-output name=client_github_repository::$CLIENT_GITHUB_REPOSITORY"
+          echo "::set-output name=client_github_ref::$CLIENT_GITHUB_REF"
+          echo "::set-output name=client_ping_pat::$CLIENT_PING_PAT"
+          echo "::set-output name=api_url_dev::$API_URL_DEV"
+          echo "::set-output name=api_url_staging::$API_URL_STAGING"
+          echo "::set-output name=api_url_uat::$API_URL_UAT"
+          echo "::set-output name=ci_server_ip::$CI_SERVER_IP"
+          echo "::set-output name=ci_server_user::$CI_SERVER_USER"
+          echo "::set-output name=app_port::$APP_PORT"
+          echo "::set-output name=repository_name::$REPOSITORY_NAME"
+          echo "::set-output name=branch_name::$BRANCH_NAME"
+    outputs:
+      client_github_repository: ${{ steps.identify.outputs.client_github_repository }}
+      client_github_ref: ${{ steps.identify.outputs.client_github_ref }}
+      client_ping_pat: ${{ steps.identify.outputs.client_ping_pat }}
+      api_url_dev: ${{ steps.identify.outputs.api_url_dev }}
+      api_url_staging: ${{ steps.identify.outputs.api_url_staging }}
+      api_url_uat: ${{ steps.identify.outputs.api_url_uat }}
+      ci_server_ip: ${{ steps.identify.outputs.ci_server_ip }}
+      ci_server_user: ${{ steps.identify.outputs.ci_server_user }}
+      app_port: ${{ steps.identify.outputs.app_port }}
+      repository_name: ${{ steps.identify.outputs.repository_name }}
+      branch_name: ${{ steps.identify.outputs.branch_name }}
 
-  #     - name: Caching Dependencies
-  #       uses: actions/cache@v2
-  #       with:
-  #         path: '**/node_modules'
-  #         key: ${{ runner.os }}-modules-${{ github.event.client_payload.github_repository }}-${{ github.event.client_payload.github_ref }}-${{ hashFiles('**/yarn.lock') }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-modules-${{ github.event.client_payload.github_repository }}-${{ github.event.client_payload.github_ref }}-
-  #           ${{ runner.os }}-modules-${{ github.event.client_payload.github_repository }}-
-  #           ${{ runner.os }}-modules-
-  #           ${{ runner.os }}-
+  test:
+    name: Testing and linting
+    needs: identify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ needs.identify.outputs.client_github_repository }}
+          ref: ${{ needs.identify.outputs.client_github_ref }}
+          token: ${{ secrets[needs.identify.outputs.client_ping_pat] }}
 
-  #     - name: Install your dependencies
-  #       run: yarn install
+      - name: Caching Dependencies
+        uses: actions/cache@v2
+        with:
+          path: '**/node_modules'
+          key: ${{ runner.os }}-modules-${{ needs.identify.outputs.client_github_repository }}-${{ needs.identify.outputs.client_github_ref }}-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-modules-${{ needs.identify.outputs.client_github_repository }}-${{ needs.identify.outputs.client_github_ref }}-
+            ${{ runner.os }}-modules-${{ needs.identify.outputs.client_github_repository }}-
+            ${{ runner.os }}-modules-
+            ${{ runner.os }}-
 
-  #     - name: Run ESLint
-  #       run: yarn lint
+      - name: Install your dependencies
+        run: yarn install
+
+      - name: Run ESLint
+        run: yarn lint
+
   build:
     name: Build Docker Image
-    # needs: lint
+    needs: [identify, test]
     runs-on: ubuntu-latest
     steps:
       -
         name: Checkout
         uses: actions/checkout@v2
         with:
-          repository: ${{ github.event.client_payload.github_repository }}
-          ref: ${{ github.event.client_payload.github_ref }}
-          token: ${{ secrets[github.event.client_payload.ping_pat] }}
-      # -
-      #   name: Prepare
-      #   id: prepare
-      #   run: |
-      #     echo ${{ github }}
-      #     echo "$GHCR_IMAGE"
-      #     echo ::set-output name=tags::$GHCR_IMAGE
+          repository: ${{ needs.identify.outputs.client_github_repository }}
+          ref: ${{ needs.identify.outputs.client_github_ref }}
+          token: ${{ secrets[needs.identify.outputs.client_ping_pat] }}
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -63,10 +92,10 @@ jobs:
         uses: actions/cache@v2
         with:
           path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.event.client_payload.github_repository }}-${{ github.event.client_payload.github_ref }}-${{ github.sha }}
+          key: ${{ runner.os }}-buildx-${{ needs.identify.outputs.client_github_repository }}-${{ needs.identify.outputs.client_github_ref }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-buildx-${{ github.event.client_payload.github_repository }}-${{ github.event.client_payload.github_ref }}-
-            ${{ runner.os }}-buildx-${{ github.event.client_payload.github_repository }}-
+            ${{ runner.os }}-buildx-${{ needs.identify.outputs.client_github_repository }}-${{ needs.identify.outputs.client_github_ref }}-
+            ${{ runner.os }}-buildx-${{ needs.identify.outputs.client_github_repository }}-
             ${{ runner.os }}-buildx-
             ${{ runner.os }}-
       -
@@ -85,35 +114,66 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository }}:${{ github.run_id }}
           build-args: |
-            API_URL=${{ github.event.client_payload.api_url }}
+            API_URL=${{ needs.identify.outputs.api_url_dev }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
-  # deploy:
-  #   name: Deploy Docker Image
-  #   runs-on: ubuntu-latest
-  #   needs: build
-  #   env:
-  #     SSH_PRIVATE_KEY: ${{ github.event.client_payload.ssh_private_key }}
-  #     SERVER_IP: ${{ github.event.client_payload.server_ip }}
-  #     SERVER_USER: ${{ github.event.client_payload.server_user }}
-  #     DOCKER_CONTAINER_NAME: ${{ github.event.client_payload.docker_container_name }}
-  #   steps:
-  #     -
-  #       name: Setup SSH keys
-  #       run: |
-  #         mkdir -p ~/.ssh
-  #         echo $SSH_PRIVATE_KEY | tr -d '\r' > ~/.ssh/id_rsa
-  #         chmod 600 ~/.ssh/id_rsa
-  #         eval "$(ssh-agent -s)"
-  #         ssh-add ~/.ssh/id_rsa
-  #         ssh-keyscan -H $SERVER_IP >> ~/.ssh/known_hosts
-  #     -
-  #       name: Deployed on the server
-  #       run: |
-  #         ssh $SERVER_USER@$SERVER_IP "docker stop $DOCKER_CONTAINER_NAME;
-  #         docker rm $DOCKER_CONTAINER_NAME;
-  #         docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY;
-  #         docker pull $CI_REGISTRY/$CI_PROJECT_PATH:$CI_COMMIT_SHORT_SHA;
-  #         docker run -d -tip $SERVER_PORT:80 --restart=always --name $DOCKER_CONTAINER_NAME $CI_REGISTRY/$CI_PROJECT_PATH:$CI_COMMIT_SHORT_SHA;
-  #         docker system prune -af;
-  #         docker logout $CI_REGISTRY;"
+
+  deploy:
+    name: Deploy Docker Image
+    runs-on: ubuntu-latest
+    needs: [identify, build]
+    env:
+      CI_SERVER_IP: ${{ needs.identify.outputs.ci_server_ip }}
+      CI_SERVER_USER: ${{ needs.identify.outputs.ci_server_user }}
+      DOCKER_CONTAINER_NAME: ${{ needs.identify.outputs.repository_name }}-${{ needs.identify.outputs.branch_name }}
+      DOCKER_IMAGE: ghcr.io/${{ github.repository }}:${{ github.run_id }}
+      DOCKER_CONTAINER_PORT: ${{ needs.identify.outputs.app_port }}
+    steps:
+      -
+        name: Setup SSH Keys and known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ github.event.client_payload.ssh_private_key }}" | tr -d '\r' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_rsa
+          ssh-keyscan -H $CI_SERVER_IP >> ~/.ssh/known_hosts
+      -
+        name: Remote access to server and deploy docker image
+        run: |
+          ssh $CI_SERVER_USER@$CI_SERVER_IP "docker stop $(docker ps --filter "name=$DOCKER_CONTAINER_NAME" -aq);
+          docker rm $(docker ps --filter "name=$DOCKER_CONTAINER_NAME" -aq);
+          echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin;
+          docker pull $DOCKER_IMAGE;
+          docker run -d -tip $DOCKER_CONTAINER_PORT:80 --restart=always --name $DOCKER_CONTAINER_NAME $DOCKER_IMAGE;
+          docker system prune -af;
+          docker logout ghcr.io;"
+
+  notify:
+    name: Report status to Workchat
+    runs-on: ubuntu-latest
+    needs: [test, build, deploy]
+    if: succeeded() || failed()
+    steps:
+      # -
+      #   name: Set workflow status
+      #   run: |
+      #     if [${{ steps.test.outcome }} == 'success' && ${{ steps.build.outcome }} == 'success' && ${{ steps.deploy.outcome }} == 'success']
+      #     then
+      #       echo "::set-env name=type::success"
+      #       echo "::set-env name=notify::true"
+      #     elif [${{ steps.test.outcome }} == 'failure' || ${{ steps.build.outcome }} == 'failure' || ${{ steps.deploy.outcome }} == 'success']
+      #     then
+      #       echo "::set-env name=type::failure"
+      #       echo "::set-env name=notify::true"
+      #     fi
+      -
+        name: Rocket.Chat Notification
+        uses: RocketChat/Rocket.Chat.GitHub.Action.Notification@master
+        # if: ${{ env.notify }}
+        with:
+          type: failure
+          job_name: Demo
+          url: ${{ secrets.ROCKETCHAT_WEBHOOK }}
+          channel: '#testbot'
+          icon_emoji: ':desktop:'
