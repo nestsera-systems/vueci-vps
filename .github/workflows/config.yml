@@ -71,7 +71,7 @@ jobs:
 
   build:
     name: Build Docker Image
-    needs: [identify, test]
+    needs: [identify]
     runs-on: ubuntu-latest
     steps:
       -
