@@ -16,8 +16,8 @@ jobs:
         name: Set the output variables
         id: identify
         run: |
-          if [ "$BRANCH_NAME" == "staging" ]; then API_URL="$API_URL_STAGING"; APP_PORT="$APP_PORT_STAGING" fi
-          if [ "$BRANCH_NAME" == "uat" ]; then API_URL="$API_URL_UAT"; APP_PORT="$APP_PORT_UAT" fi
+          if [ "$BRANCH_NAME" == "staging" ]; then API_URL="$API_URL_STAGING"; APP_PORT="$APP_PORT_STAGING"; fi
+          if [ "$BRANCH_NAME" == "uat" ]; then API_URL="$API_URL_UAT"; APP_PORT="$APP_PORT_UAT"; fi
           echo "::set-output name=client_github_repository::$CLIENT_GITHUB_REPOSITORY"
           echo "::set-output name=client_github_ref::$CLIENT_GITHUB_REF"
           echo "::set-output name=client_ping_pat::$CLIENT_PING_PAT"
