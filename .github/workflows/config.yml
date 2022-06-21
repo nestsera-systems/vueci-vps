@@ -16,14 +16,15 @@ jobs:
         name: Set the output variables
         id: identify
         run: |
+          if [ "$BRANCH_NAME" == "staging" ]; then API_URL=$API_URL_STAGING; APP_PORT=$APP_PORT_STAGING fi
+          if [ "$BRANCH_NAME" == "uat" ]; then API_URL=$API_URL_UAT; APP_PORT=$APP_PORT_UAT fi
           echo "::set-output name=client_github_repository::$CLIENT_GITHUB_REPOSITORY"
           echo "::set-output name=client_github_ref::$CLIENT_GITHUB_REF"
           echo "::set-output name=client_ping_pat::$CLIENT_PING_PAT"
-          echo "::set-output name=api_url_staging::$API_URL_STAGING"
-          echo "::set-output name=api_url_uat::$API_URL_UAT"
+          echo "::set-output name=api_url::$API_URL"
           echo "::set-output name=ci_server_ip::$CI_SERVER_IP"
           echo "::set-output name=ci_server_user::$CI_SERVER_USER"
-          echo "::set-output name=app_port_staging::$APP_PORT_STAGING"
+          echo "::set-output name=app_port::$APP_PORT"
           echo "::set-output name=repository_name::$REPOSITORY_NAME"
           echo "::set-output name=branch_name::$BRANCH_NAME"
           echo "::set-output name=ci_room_notify::$CI_ROOM_NOTIFY"
@@ -31,11 +32,10 @@ jobs:
       client_github_repository: ${{ steps.identify.outputs.client_github_repository }}
       client_github_ref: ${{ steps.identify.outputs.client_github_ref }}
       client_ping_pat: ${{ steps.identify.outputs.client_ping_pat }}
-      api_url_staging: ${{ steps.identify.outputs.api_url_staging }}
-      api_url_uat: ${{ steps.identify.outputs.api_url_uat }}
+      api_url: ${{ steps.identify.outputs.api_url }}
       ci_server_ip: ${{ steps.identify.outputs.ci_server_ip }}
       ci_server_user: ${{ steps.identify.outputs.ci_server_user }}
-      app_port_staging: ${{ steps.identify.outputs.app_port_staging }}
+      app_port: ${{ steps.identify.outputs.app_port }}
       repository_name: ${{ steps.identify.outputs.repository_name }}
       branch_name: ${{ steps.identify.outputs.branch_name }}
       ci_room_notify: ${{ steps.identify.outputs.ci_room_notify }}
@@ -114,7 +114,7 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository }}:${{ github.run_id }}
           build-args: |
-            API_URL=${{ needs.identify.outputs.api_url_staging }}
+            API_URL=${{ needs.identify.outputs.api_url }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
 
@@ -128,7 +128,7 @@ jobs:
       DOCKER_CONTAINER: $(docker ps --filter "name=${{ needs.identify.outputs.repository_name }}-${{ needs.identify.outputs.branch_name }}" -aq)
       DOCKER_CONTAINER_NAME: ${{ needs.identify.outputs.repository_name }}-${{ needs.identify.outputs.branch_name }}
       DOCKER_IMAGE: ghcr.io/${{ github.repository }}:${{ github.run_id }}
-      DOCKER_CONTAINER_PORT: ${{ needs.identify.outputs.app_port_staging }}
+      DOCKER_CONTAINER_PORT: ${{ needs.identify.outputs.app_port }}
     steps:
       -
         name: Setup SSH Keys and known_hosts
